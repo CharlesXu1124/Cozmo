@@ -1,5 +1,6 @@
 # state machines
-
+# code for Lab2-part2
+# Author: Victoria Neal, Zheyuan Xu
 import time
 import tensorflow as tf
 import cozmo
@@ -13,7 +14,7 @@ from keras.preprocessing.image import img_to_array
 import statistics
 
 
-# helper method, for 
+# helper method, for rescaling input images
 def rescale(image, width, height):
     # Grab the dimensions of the image, then initialize the padding values
     (h, w) = image.shape[:2]
@@ -36,7 +37,8 @@ def rescale(image, width, height):
     # Return the pre-processed image
     return image
 
-
+# state idle:
+# cozmo will continuously take input images until it detects something: "drone", "inspection" or "order"
 def idle(robot: cozmo.robot.Robot):
     # code for state idle
     robot.camera.image_stream_enabled = True
@@ -73,6 +75,9 @@ def idle(robot: cozmo.robot.Robot):
         img = np.array(image, dtype="float") / 255.0
 
         img = img.reshape(-1, 32, 32, 3)
+        
+        # make the prediction, the result is an array with the maximum number corresponding
+        # the correct prediction
         result = classifier.predict(img)
 
         # convert the prediction result to array
@@ -108,10 +113,11 @@ def idle(robot: cozmo.robot.Robot):
             robot.say_text('inspection').wait_for_completed()
             robot.abort_all_actions(log_abort_messages=True)
             inspection(robot)
-    idle(robot)
+    # exit the code execution if there are any keyboard interrupts
+    exit(0)
         
 
-
+# code for state inspection
 def inspection(robot: cozmo.robot.Robot):
     # Use a "for loop" to repeat the indented code 4 times
     # Note: the _ variable name can be used when you don't need the value
@@ -132,19 +138,26 @@ def inspection(robot: cozmo.robot.Robot):
         # abort all ongoing actions
         robot.abort_all_actions(log_abort_messages=True)
 
-        # perform the turn
+        # perform the turn: 90 degree
         robot.turn_in_place(degrees(90)).wait_for_completed()
+    # stop all actions, if there are any
     robot.abort_all_actions(log_abort_messages=True)
+    
+    # return to idle state
     idle(robot)
 
 
-
+# code for state drone
 def drone(robot: cozmo.robot.Robot):
     # code for state drone
     # look for nearby cubes
     lookaround = robot.start_behavior(cozmo.behavior.BehaviorTypes.LookAroundInPlace)
     cubes = robot.world.wait_until_observe_num_objects(num=1, object_type=cozmo.objects.LightCube, timeout=60)
+    
+    # stop looking around if it finds any of the cubes
     lookaround.stop()
+    
+    # pick up the cube in front of it, making 5 attempts
     current_action = robot.pickup_object(cubes[0], num_retries=5)
     current_action.wait_for_completed()
     
@@ -157,14 +170,17 @@ def drone(robot: cozmo.robot.Robot):
     # go back 100mm
     robot.drive_straight(distance_mm(-100), speed_mmps(50)).wait_for_completed()
     robot.abort_all_actions(log_abort_messages=True)
+    
+    # return to idle state
     idle(robot)
 
 
-    
+# code for state order    
 def order(robot: cozmo.robot.Robot):
     # code for state order
     # drive in a circle with radius of approximately 10 cm
     robot.drive_wheels(80, 40)
+    # drive for about 13 seconds, approximately one cycle
     time.sleep(13)
     # stop driving after 13 sec
     robot.drive_wheels(0, 0)
@@ -173,5 +189,5 @@ def order(robot: cozmo.robot.Robot):
     robot.abort_all_actions(log_abort_messages=True)
     idle(robot)
 
-
+# initiate the program, start with state "idle"
 cozmo.run_program(idle)
