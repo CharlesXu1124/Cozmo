@@ -11,10 +11,9 @@ import numpy as np
 import imutils
 from keras.preprocessing.image import img_to_array
 import statistics
-from PIL import Image
 
 
-
+# helper method, for 
 def rescale(image, width, height):
     # Grab the dimensions of the image, then initialize the padding values
     (h, w) = image.shape[:2]
@@ -43,26 +42,46 @@ def idle(robot: cozmo.robot.Robot):
     robot.camera.image_stream_enabled = True
     robot.camera.color_image_enabled = False
     robot.camera.enable_auto_exposure()
-    # reset head angle
+
+    # reset head angle so it is facing forward
     robot.set_head_angle(cozmo.util.degrees(0)).wait_for_completed()
+
     # reuse the model from lab 1
     classifier = load('clf.joblib')
+
+    # initialize the detection window of size 5
     img_window = ['none', 'none', 'none', 'none', 'none']
+
+    # intialize the array of labels
     label_arr = ['drone', 'hands', 'inspection', 'none', 'order', 'place', 'plane', 'truck']
     state_idle = True
+
     # pause 0.5 sec
     while (state_idle):
         time.sleep(0.5)
+
+        # take the image
         latest_image = robot.world.latest_image
         new_image = latest_image.raw_image
         new_image = np.array(new_image)
+
+        # rescale the image into 32 X 32 X 3 array
         image = rescale(new_image,32,32)
         image = img_to_array(image)
+
+        # normalize the image array
         img = np.array(image, dtype="float") / 255.0
+
         img = img.reshape(-1, 32, 32, 3)
         result = classifier.predict(img)
+
+        # convert the prediction result to array
         result = result[0].tolist()
+
+        # extract the index for the maximum label
         idx = result.index(max(result))
+
+        # extract the label
         label = label_arr[idx]
         for i in range(1, len(img_window)):
             img_window[i] = img_window[i - 1]
@@ -70,16 +89,21 @@ def idle(robot: cozmo.robot.Robot):
         majority_label = statistics.mode(img_window)
         print(majority_label)
         if majority_label == 'drone':
-            img_window = ['none', 'none', 'none', 'none', 'none']
+
+            # say the text "drone", and jump to drone
             robot.say_text('drone').wait_for_completed()
             robot.abort_all_actions(log_abort_messages=True)
             drone(robot)
         if majority_label == 'order':
+
+            # say the text "order" and jump to order
             img_window = ['none', 'none', 'none', 'none', 'none']
             robot.say_text('order').wait_for_completed()
             robot.abort_all_actions(log_abort_messages=True)
             order(robot)
         if majority_label == 'inspection':
+
+            # say the text "inspection", and jump to inspection
             img_window = ['none', 'none', 'none', 'none', 'none']
             robot.say_text('inspection').wait_for_completed()
             robot.abort_all_actions(log_abort_messages=True)
@@ -92,32 +116,44 @@ def inspection(robot: cozmo.robot.Robot):
     # Use a "for loop" to repeat the indented code 4 times
     # Note: the _ variable name can be used when you don't need the value
     # drive in a square with side 20cm
-    robot.set_lift_height(0.0, in_parallel=True, duration=1.0).wait_for_completed()
+    robot.set_lift_height(0.0, in_parallel=False, duration=1.0).wait_for_completed()
     robot.abort_all_actions(log_abort_messages=True)
     for i in range(4):
-        if i % 2 == 1:
-            robot.move_lift(-0.25)
-        else:
-            robot.move_lift(0.25)
-        robot.drive_straight(distance_mm(200), speed_mmps(50)).wait_for_completed()
+
+        # raise the arm for 3 seconds, at a speed of 1/3 = 0.333
+        robot.move_lift(0.33)
+        robot.drive_straight(distance_mm(200), speed_mmps(40), should_play_anim=False, in_parallel=True, num_retries=0)
+        time.sleep(3)
+
+        # lower the arm for 2 seconds, at a speed of 1/2 = 0.5
+        robot.move_lift(-0.50)
+        time.sleep(2)
+
+        # abort all ongoing actions
+        robot.abort_all_actions(log_abort_messages=True)
+
+        # perform the turn
         robot.turn_in_place(degrees(90)).wait_for_completed()
     robot.abort_all_actions(log_abort_messages=True)
-    robot.set_lift_height(0.0, in_parallel=True, duration=1.0)
     idle(robot)
 
 
 
 def drone(robot: cozmo.robot.Robot):
     # code for state drone
+    # look for nearby cubes
     lookaround = robot.start_behavior(cozmo.behavior.BehaviorTypes.LookAroundInPlace)
     cubes = robot.world.wait_until_observe_num_objects(num=1, object_type=cozmo.objects.LightCube, timeout=60)
     lookaround.stop()
     current_action = robot.pickup_object(cubes[0], num_retries=5)
     current_action.wait_for_completed()
+    
     # move forward 100mm
     robot.drive_straight(distance_mm(100), speed_mmps(50)).wait_for_completed()
+    
     # drop the cube
     current_action = robot.place_object_on_ground_here(cubes[0]).wait_for_completed()
+    
     # go back 100mm
     robot.drive_straight(distance_mm(-100), speed_mmps(50)).wait_for_completed()
     robot.abort_all_actions(log_abort_messages=True)
@@ -132,6 +168,8 @@ def order(robot: cozmo.robot.Robot):
     time.sleep(13)
     # stop driving after 13 sec
     robot.drive_wheels(0, 0)
+
+    # end all actions
     robot.abort_all_actions(log_abort_messages=True)
     idle(robot)
 
