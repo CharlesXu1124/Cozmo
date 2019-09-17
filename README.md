@@ -1,2 +1,2 @@
 # Cozmo
-code for cs3630
+code for cs3630 labs!
