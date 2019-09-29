@@ -13,6 +13,47 @@ class ParticleType(object):
         self.particle = particle
         self.weight = weight
 
+# helper function for getting the weight for each particle
+def reweight_particle(mm_list, pm_list, particle):
+    if len(mm_list) == 0 or len(pm_list) == 0:
+        return ParticleType(particle, 0)
+    # initialize the list for matched marker
+    measure_counter = 0
+    match_list = []
+    # convert list to set to randomize the process
+    p_set = set(pm_list)
+
+    while measure_counter < len(mm_list) and len(p_set) > 0:
+        # get the next measured marker
+        marker_measurement = mm_list[measure_counter]
+        # inner function for calculating the distance, as a criterion for selecting the closest particles to
+        # the designated marker
+        def distance(particle):
+            return grid_distance(marker_measurement[0], marker_measurement[1], particle[0], particle[1])
+        min_p = min(pm_list, key=lambda p: distance(p))
+        
+        match_list.append((marker_measurement, min_p))
+        # remove the best particle which forms the marker-marker pair
+        if min_p in p_set:
+            p_set.remove(min_p)
+        # increment the counter for the measured markers to find the next marker-marker pair
+        measure_counter += 1
+    # do the weight updates
+    prob = 1
+    for m, p in match_list:
+        # extract angle and distance from the marker in the matched list
+        rot = diff_heading_deg(m[2], p[2])
+        dist = grid_distance(m[0], m[1], p[0], p[1])
+        
+        trans_error = 2 * setting.MARKER_TRANS_SIGMA ** 2
+        rot_error = 2 * setting.MARKER_ROT_SIGMA ** 2
+        
+        indices = -((dist**2 / (trans_error)) + (rot**2 / (rot_error)))
+        prob *= np.exp(indices)
+    return ParticleType(particle, prob)
+
+
+
 def motion_update(particles, odom):
     """ Particle filter motion update
 
@@ -65,23 +106,19 @@ def measurement_update(particles, measured_marker_list, grid):
     # if no markers seen within FOV, do nothing to the particles
     if len(measured_marker_list) == 0:
         return particles
+
+    # if there are actually observed markers within FOV
     for p in particles:
         # if particle is within grid
         if grid.is_free(p.x, p.y):
             # if measured marker for the particle is non-zero
-            if len(measured_marker_list) > 0:
-                # get the list of markers
-                particle_markers = p.read_markers(grid)
-                particle_weights.append(
-                    reweight_particle(
-                        measured_marker_list=measured_marker_list,
-                        pm_list=particle_markers,
-                        particle=p,
-                    )
-                )
-            else:
-                # if there is no marker in the observed list, assign the weight to 1
-                particle_weights.append(ParticleType(particle=p, weight=1))
+            # get the list of markers
+            particle_markers = p.read_markers(grid)
+            particle_weights.append(
+                reweight_particle(
+                    mm_list=measured_marker_list,
+                    pm_list=particle_markers,
+                    particle=p ))
         else:
             # assign 0 weight if the particle is outside grid
             particle_weights.append(ParticleType(particle=p, weight=0))
@@ -112,6 +149,7 @@ def measurement_update(particles, measured_marker_list, grid):
     # delete those 0-weighted particles, meanwhile create a random list of particles and spread them on the grid
     measured_particles = Particle.create_random(n_zero_weight_particle, grid)
     if particle_weights != []:
+        # construct the probability density function
         pdf = []
         for p in particle_weights:
             pdf.append(p.weight)
@@ -122,45 +160,5 @@ def measurement_update(particles, measured_marker_list, grid):
             p = s.particle
             measured_particles.append(Particle(p.x, p.y, p.h))
 
-    # assert len(measured_particles) == len(particles)
     return measured_particles
-
-# helper function for getting the weight for each particle
-def reweight_particle(measured_marker_list, pm_list, particle):
-    if len(measured_marker_list) == 0 or len(pm_list) == 0:
-        return ParticleType(particle, 0)
-    # initialize the list for matched marker
-    measure_counter = 0
-    match_list = []
-    # convert it list to set to randomize the process
-    particle_set = set(pm_list)
-
-    while measure_counter < len(measured_marker_list) and len(particle_set) > 0:
-        # get the next measured marker
-        marker_measurement = measured_marker_list[measure_counter]
-        
-        def distance(particle):
-            return grid_distance(marker_measurement[0], marker_measurement[1], particle[0], particle[1])
-        closest_particle = min(pm_list, key=lambda p: distance(p))
-        
-
-        match_list.append((marker_measurement, closest_particle))
-        # remove the best particle which forms the marker-marker pair
-        if closest_particle in particle_set:
-            particle_set.remove(closest_particle)
-        # increment the counter for the measured markers to find the next marker-marker pair
-        measure_counter += 1
-    # do the weight updates
-    weight = 1
-    for m, p in match_list:
-        # extract angle and distance from the marker in the matched list
-        rot = diff_heading_deg(m[2], p[2])
-        dist = grid_distance(m[0], m[1], p[0], p[1])
-        
-        trans_error = 2 * setting.MARKER_TRANS_SIGMA ** 2
-        rot_error = 2 * setting.MARKER_ROT_SIGMA ** 2
-        
-        indices = -((dist**2 / (trans_error)) + \
-              (rot**2 / (rot_error)))
-
 
