@@ -9,23 +9,27 @@ random.seed(setting.RANDOM_SEED)
 
 # class: defining a datatype for particle-weight pair
 class ParticleType(object):
+    '''
+    class type: ParticleType
+    attributes: particle, weight
+    '''
     def __init__(self, particle, weight):
         self.particle = particle
         self.weight = weight
 
 # helper function for getting the weight for each particle
-def reweight_particle(mm_list, pm_list, particle):
+def reweight(mm_list, pm_list, particle):
     if len(mm_list) == 0 or len(pm_list) == 0:
         return ParticleType(particle, 0)
     # initialize the list for matched marker
-    measure_counter = 0
+    counter = 0
     match_list = []
     # convert list to set to randomize the process
     p_set = set(pm_list)
 
-    while measure_counter < len(mm_list) and len(p_set) > 0:
+    while counter < len(mm_list) and len(p_set) > 0:
         # get the next measured marker
-        marker_measurement = mm_list[measure_counter]
+        marker_measurement = mm_list[counter]
         # inner function for calculating the distance, as a criterion for selecting the closest particles to
         # the designated marker
         def distance(particle):
@@ -37,14 +41,15 @@ def reweight_particle(mm_list, pm_list, particle):
         if min_p in p_set:
             p_set.remove(min_p)
         # increment the counter for the measured markers to find the next marker-marker pair
-        measure_counter += 1
+        counter += 1
+
     # do the weight updates
     prob = 1
     for m, p in match_list:
         # extract angle and distance from the marker in the matched list
         rot = diff_heading_deg(m[2], p[2])
         dist = grid_distance(m[0], m[1], p[0], p[1])
-        
+        # apply the gaussian errors on rotation and translation
         trans_error = 2 * setting.MARKER_TRANS_SIGMA ** 2
         rot_error = 2 * setting.MARKER_ROT_SIGMA ** 2
         
@@ -69,11 +74,13 @@ def motion_update(particles, odom):
     dx, dy, dh = odom
     # update the dx and dy in the global frame
     # rotation remains unchanged in different frames -- no need to update
+    trans_err = setting.ODOM_TRANS_SIGMA
+    rot_err = setting.ODOM_HEAD_SIGMA
     for p in particles:
         rx, ry = rotate_point(dx, dy, p.h)
-        p.x += add_gaussian_noise(rx, setting.ODOM_TRANS_SIGMA)
-        p.y += add_gaussian_noise(ry, setting.ODOM_TRANS_SIGMA)
-        p.h += add_gaussian_noise(dh, setting.ODOM_HEAD_SIGMA)
+        p.x += add_gaussian_noise(rx, trans_err)
+        p.y += add_gaussian_noise(ry, trans_err)
+        p.h += add_gaussian_noise(dh, rot_err)
         motion_particles.append(p)
     return motion_particles
 
@@ -114,11 +121,8 @@ def measurement_update(particles, measured_marker_list, grid):
             # if measured marker for the particle is non-zero
             # get the list of markers
             particle_markers = p.read_markers(grid)
-            particle_weights.append(
-                reweight_particle(
-                    mm_list=measured_marker_list,
-                    pm_list=particle_markers,
-                    particle=p ))
+            particle_reweight = reweight(measured_marker_list, particle_markers,p)
+            particle_weights.append(particle_reweight)
         else:
             # assign 0 weight if the particle is outside grid
             particle_weights.append(ParticleType(particle=p, weight=0))
@@ -131,11 +135,14 @@ def measurement_update(particles, measured_marker_list, grid):
     # get the average weight
     w_avg = total_weight / len(particle_weights)
 
-    # get the number of positive-weighted particles
+    # get the number of positive-weighted particles and zero-weighted particles
     n_pos_particle = 0
+    n_zero_weight_particle = 0
     for p in particle_weights:
         if p.weight > 0:
             n_pos_particle += 1
+        else:
+            n_zero_weight_particle += 1
     # rescale the positive weight so the total weight remains unchanged
     if n_pos_particle > 0:
         w_avg = len(particles) * (w_avg / n_pos_particle)
@@ -143,20 +150,17 @@ def measurement_update(particles, measured_marker_list, grid):
         for pw in particle_weights:
             pw.weight = pw.weight / total_weight
 
-    # get the number of 0 weighted particles
-    n_zero_weight_particle = len(particle_weights) - n_pos_particle
-
     # delete those 0-weighted particles, meanwhile create a random list of particles and spread them on the grid
     measured_particles = Particle.create_random(n_zero_weight_particle, grid)
-    if particle_weights != []:
-        # construct the probability density function
+    if len(particle_weights) != 0:
+        # construct the probability density function for resampling
         pdf = []
         for p in particle_weights:
             pdf.append(p.weight)
         # randomly choose count_positive amount of particles with sampling pdf proportional to their weight
         # a.k.a. resampling process
-        sample = np.random.choice(particle_weights, size=n_pos_particle, p=pdf, replace=True)
-        for s in sample:
+        resampling = np.random.choice(particle_weights, size=n_pos_particle, p=pdf, replace=True)
+        for s in resampling:
             p = s.particle
             measured_particles.append(Particle(p.x, p.y, p.h))
 
