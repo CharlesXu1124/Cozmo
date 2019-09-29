@@ -50,8 +50,8 @@ def reweight(mm_list, pm_list, particle):
         rot = diff_heading_deg(m[2], p[2])
         dist = grid_distance(m[0], m[1], p[0], p[1])
         # apply the gaussian errors on rotation and translation
-        trans_error = 2 * setting.MARKER_TRANS_SIGMA ** 2
-        rot_error = 2 * setting.MARKER_ROT_SIGMA ** 2
+        trans_error = 4 * setting.MARKER_TRANS_SIGMA ** 2
+        rot_error = 8 * setting.MARKER_ROT_SIGMA ** 2
         
         indices = -((dist**2 / (trans_error)) + (rot**2 / (rot_error)))
         prob *= np.exp(indices)
@@ -154,15 +154,16 @@ def measurement_update(particles, measured_marker_list, grid):
     measured_particles = Particle.create_random(n_zero_weight_particle, grid)
     if len(particle_weights) != 0:
         # construct the probability density function for resampling
-        pdf = []
+        weight_list = []
         for p in particle_weights:
-            pdf.append(p.weight)
+            weight_list.append(p.weight)
         # randomly choose count_positive amount of particles with sampling pdf proportional to their weight
         # a.k.a. resampling process
-        resampling = np.random.choice(particle_weights, size=n_pos_particle, p=pdf, replace=True)
+        resampling = np.random.choice(particle_weights, size=n_pos_particle, p=weight_list, replace=True)
         for s in resampling:
             p = s.particle
             measured_particles.append(Particle(p.x, p.y, p.h))
 
     return measured_particles
+
 
