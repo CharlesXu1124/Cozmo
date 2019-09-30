@@ -61,27 +61,30 @@ def reweight(mm_list, pm_list, particle):
 
 def motion_update(particles, odom):
     """ Particle filter motion update
-
         Arguments:
         particles -- input list of particle represents belief p(x_{t-1} | u_{t-1})
                 before motion update
         odom -- odometry to move (dx, dy, dh) in *robot local frame*
-
         Returns: the list of particles represents belief \tilde{p}(x_{t} | u_{t})
                 after motion update
     """
     motion_particles = []
-    dx, dy, dh = odom
-    # update the dx and dy in the global frame
-    # rotation remains unchanged in different frames -- no need to update
-    trans_err = setting.ODOM_TRANS_SIGMA
-    rot_err = setting.ODOM_HEAD_SIGMA
-    for p in particles:
-        rx, ry = rotate_point(dx, dy, p.h)
-        p.x += add_gaussian_noise(rx, trans_err)
-        p.y += add_gaussian_noise(ry, trans_err)
-        p.h += add_gaussian_noise(dh, rot_err)
-        motion_particles.append(p)
+
+    for particle in particles:
+        x = odom[0]
+        y = odom[1]
+
+        # particle rotation
+        x1, y1 = rotate_point(x, y, particle.h)
+        particle.x += x1
+        particle.x = add_gaussian_noise(particle.x, setting.ODOM_TRANS_SIGMA)
+        particle.y += y1
+        particle.y = add_gaussian_noise(particle.y, setting.ODOM_TRANS_SIGMA)
+
+        particle.h += odom[2]
+        particle.h = add_gaussian_noise(particle.h, setting.ODOM_HEAD_SIGMA)
+
+        motion_particles.append(particle)
     return motion_particles
 
 # ------------------------------------------------------------------------
