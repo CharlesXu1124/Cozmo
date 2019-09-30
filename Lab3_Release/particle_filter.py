@@ -1,3 +1,4 @@
+# author: Victoria Neal, Zheyuan Xu
 from grid import *
 from particle import Particle
 from utils import *
