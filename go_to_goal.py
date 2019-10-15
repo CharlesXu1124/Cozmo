@@ -200,27 +200,69 @@ async def run(robot: cozmo.robot.Robot):
                 # rand = np.random.randint(low=1, high=5)
                 # print('random number', rand)
                 # await robot.drive_wheels(l_wheel_speed=15, r_wheel_speed=5, duration=6)
-                remainder = count % 4
+                remainder = count % 5
                 if remainder == 0:
-                    # order and plane
-                    await robot.drive_straight(cozmo.util.distance_mm(40), cozmo.util.speed_mmps(70)).wait_for_completed()
+                    # drone and block
+                    print('drone and block')
+
+                    # robot.drive_wheel_motors(-50,50)
+                    # robot.drive_wheel_motors(-50,50)
+                    # robot.drive_wheel_motors(-50,50)
+                    # robot.drive_wheel_motors(-50,50)
                     # await robot.turn_in_place(cozmo.util.degrees(-90)).wait_for_completed()
+                    # time.sleep(0.5)
+                    # await robot.turn_in_place(cozmo.util.degrees(-90)).wait_for_completed()
+                    # time.sleep(0.5)
+                    # await robot.turn_in_place(cozmo.util.degrees(-90)).wait_for_completed()
+                    # time.sleep(0.5)
+                    # await robot.turn_in_place(cozmo.util.degrees(-90)).wait_for_completed()
+                    # time.sleep(0.5)
+                    # await robot.drive_straight(cozmo.util.distance_inches(5), cozmo.util.speed_mmps(70)).wait_for_completed()
+                    # time.sleep(0.5)
+
+                    # await robot.drive_straight(cozmo.util.distance_inches(-5), cozmo.util.speed_mmps(70)).wait_for_completed()
+                    # time.sleep(0.5)
+
+                    # await robot.drive_straight(cozmo.util.distance_inches(5), cozmo.util.speed_mmps(70)).wait_for_completed()
+                    # time.sleep(0.5)
+
+                    await robot.drive_straight(cozmo.util.distance_inches(1.35), cozmo.util.speed_mmps(70)).wait_for_completed()
+                    time.sleep(1)
+
+
                 elif remainder == 1:
-                    # inspection
-                    # await robot.drive_straight(cozmo.util.distance_mm(-90), cozmo.util.speed_mmps(70)).wait_for_completed()
-                    await robot.drive_straight(cozmo.util.distance_mm(-40), cozmo.util.speed_mmps(70)).wait_for_completed()
-                    await robot.turn_in_place(cozmo.util.degrees(-90)).wait_for_completed()
-                    await robot.drive_straight(cozmo.util.distance_mm(70), cozmo.util.speed_mmps(70)).wait_for_completed()
-                elif remainder == 2:
-                    # drone and place
-                    await robot.drive_straight(cozmo.util.distance_mm(-70), cozmo.util.speed_mmps(70)).wait_for_completed()
-                    await robot.turn_in_place(cozmo.util.degrees(-90)).wait_for_completed()
-                    await robot.drive_straight(cozmo.util.distance_mm(40), cozmo.util.speed_mmps(70)).wait_for_completed()
-                elif remainder == 3:
                     # order and plane
-                    await robot.drive_straight(cozmo.util.distance_mm(-40), cozmo.util.speed_mmps(70)).wait_for_completed()
+                    print('order and plane')
+                    await robot.drive_straight(cozmo.util.distance_inches(-0.3), cozmo.util.speed_mmps(70)).wait_for_completed()
                     await robot.turn_in_place(cozmo.util.degrees(-90)).wait_for_completed()
-                count += 1
+                    await robot.drive_straight(cozmo.util.distance_inches(-4.4), cozmo.util.speed_mmps(70)).wait_for_completed()
+                    time.sleep(1)
+
+                elif remainder == 2:
+                    # inspection
+                    print('inspection')
+                    await robot.drive_straight(cozmo.util.distance_inches(4.1), cozmo.util.speed_mmps(70)).wait_for_completed()
+                    await robot.turn_in_place(cozmo.util.degrees(-90)).wait_for_completed()
+                    await robot.drive_straight(cozmo.util.distance_inches(3), cozmo.util.speed_mmps(70)).wait_for_completed()
+                    time.sleep(1)
+
+                elif remainder == 3:
+                    # truck
+                    print('truck')
+                    await robot.drive_straight(cozmo.util.distance_inches(-2.7), cozmo.util.speed_mmps(70)).wait_for_completed()
+                    await robot.turn_in_place(cozmo.util.degrees(-90)).wait_for_completed()
+                    await robot.drive_straight(cozmo.util.distance_inches(-4.6), cozmo.util.speed_mmps(70)).wait_for_completed()
+
+                elif remainder == 4:
+                    # return to start position
+                    print('returning')
+                    await robot.drive_straight(cozmo.util.distance_inches(4), cozmo.util.speed_mmps(70)).wait_for_completed()
+                    await robot.turn_in_place(cozmo.util.degrees(-90)).wait_for_completed()
+
+                if count <= 9:
+                    count += 1
+                else:
+                    count = 0
 
                 time.sleep(0.5)
                 # await robot.drive_straight(cozmo.util.distance_mm(20), cozmo.util.speed_mmps(10)).wait_for_completed()
