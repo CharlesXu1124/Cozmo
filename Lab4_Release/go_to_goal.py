@@ -160,10 +160,14 @@ async def run(robot: cozmo.robot.Robot):
         await robot.set_head_angle(cozmo.util.degrees(0)).wait_for_completed()
         # if the robot is kidnapped
         if robot.is_picked_up:
+            # reset the particles
             pf = ParticleFilter(grid)
+            # reset converge state
             localize_converge = False
             goal_reached = False
+            # play angry animation
             await robot.play_anim_trigger(cozmo.anim.Triggers.FrustratedByFailure).wait_for_completed()
+            # proceed to next loop
             continue
         if localize_converge:
             # if the robot has reached the goal
