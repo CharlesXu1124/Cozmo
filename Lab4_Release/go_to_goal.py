@@ -1,3 +1,5 @@
+## Victoria Neal
+## Charles Xu
 ## If you run into an "[NSApplication _setup] unrecognized selector" problem on macOS,
 ## try uncommenting the following snippet
 
