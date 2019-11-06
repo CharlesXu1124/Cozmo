@@ -127,7 +127,12 @@ async def CozmoPlanning(robot: cozmo.robot.Robot):
     index = 0
     robot_pos = Node((50 + robot.pose.position.x, 35 + robot.pose.position.y))
     cmap.set_start(robot_pos)
+    record_angle = 0
+    reset_degree = 0
+    goal_reached = False
     while True:
+        if goal_reached:
+            break
         index += 1
         print(index)
         robot_pos = Node((50 + robot.pose.position.x, 35 + robot.pose.position.y))
@@ -153,10 +158,15 @@ async def CozmoPlanning(robot: cozmo.robot.Robot):
             
         # if the cmap is solved using RRT
         if cmap.is_solved():
-            
+            reset_degree = -(record_angle % 360)
+            await robot.turn_in_place(degrees(reset_degree)).wait_for_completed()
             # begin routing
             for i in range(len(path)):
+                robot_pos = Node((50 + robot.pose.position.x, 35 + robot.pose.position.y))
+                cmap.set_start(robot_pos)
                 p = path[i]
+                if i == len(path) - 1:
+                    goal_reached = True
                 p_next = path[i+1]
                 delta_x = p_next.x - p.x
                 delta_y = p_next.y - p.y
@@ -165,16 +175,18 @@ async def CozmoPlanning(robot: cozmo.robot.Robot):
                 dist = math.sqrt(delta_x**2 + delta_y**2)
                 # reset angle before performing turning
                 # performing the turn
-                # await robot.turn_in_place(degrees(angle)).wait_for_completed()
+                await robot.turn_in_place(degrees(angle)).wait_for_completed()
                 # call detecting function again in case there are some obstacles in front of the robot
                 update_cmap, goal_center, marked = await detect_cube_and_update_cmap(robot, marked, robot_pos)
                 if update_cmap:
                     cmap.reset_paths()
+                    # reset the angle to zero
+                    await robot.turn_in_place(degrees(-angle)).wait_for_completed()
                     # proceed to next loop
-                    continue
+                    break
                 # drive straight
                 await robot.drive_straight(distance_mm(dist), speed_mmps(50)).wait_for_completed()
-                await robot.turn_in_place(degrees(-alpha)).wait_for_completed()   
+                await robot.turn_in_place(degrees(-angle)).wait_for_completed()   
         else:
             # if the cmap is not solved
             goal_list = cmap.get_goals()
@@ -196,6 +208,7 @@ async def CozmoPlanning(robot: cozmo.robot.Robot):
                 else:
                     # if i > 0
                     # turn at the center to observe new obstacles and goals
+                    record_angle += 30
                     await robot.turn_in_place(degrees(30)).wait_for_completed()
             else:
                 cmap.set_start(robot_pos)
