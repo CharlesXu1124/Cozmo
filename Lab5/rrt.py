@@ -215,7 +215,6 @@ async def CozmoPlanning(robot: cozmo.robot.Robot):
                 RRT(cmap, cmap.get_start())
                 if cmap.is_solved():
                     path = cmap.get_smooth_path()
-                index = 0
     
                 
     
