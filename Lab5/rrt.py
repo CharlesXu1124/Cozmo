@@ -3,6 +3,7 @@ import math
 import sys
 import time
 import random
+from cozmo.util import degrees, distance_mm, speed_mmps
 
 from cmap import *
 from gui import *
@@ -94,6 +95,14 @@ def RRT(cmap, start):
     else:
         print("Please try again :-(")
 
+def get_current_pose_cmap(robot):
+    startX = 50.0
+    startY = 35.0
+    currentx = robot.pose.position.x
+    currenty = robot.pose.position.y
+
+    return Node((currentx + startX, currenty + startY))
+
 
 async def CozmoPlanning(robot: cozmo.robot.Robot):
     # Allows access to map and stopevent, which can be used to see if the GUI
@@ -103,11 +112,102 @@ async def CozmoPlanning(robot: cozmo.robot.Robot):
     ########################################################################
     # TODO: please enter your code below.
     # Description of function provided in instructions
-    map_width, map_height = cmap.get_size()
-    startX = 50.0
-    startY = 35.0
-    currentPosition = Node((startX, startY))
-    cozmo_angle = 0.0
+    #the start position of the robot
+    startX = 35
+    startY = 50
+    angle = 0
+    # marker_list initialized to empty
+    # it is a dictionary
+    marked = {}
+    # initialize the heading to 0 degree
+    await robot.set_head_angle(cozmo.util.degrees(0)).wait_for_completed()
+    globalWidth, globalHeight = cmap.get_size()
+    # initialize path
+    path = None
+    index = 0
+    robot_pos = Node((50 + robot.pose.position.x, 35 + robot.pose.position.y))
+    cmap.set_start(robot_pos)
+    while True:
+        index += 1
+        print(index)
+        robot_pos = Node((50 + robot.pose.position.x, 35 + robot.pose.position.y))
+        cmap.set_start(robot_pos)
+        # get three parameters
+        # update_cmap: whether the cmap is updated
+        # goal_center: whether there is a valid goal position
+        # marked: whether the 
+        update_cmap, goal_center, marked = await detect_cube_and_update_cmap(robot, marked, robot_pos)
+        print(update_cmap)
+        print(goal_center)
+        print(marked)
+        print(path)
+        if update_cmap:
+            # update cmap
+            print("map changed, resetting...")
+            # clear all existing paths found
+            if not path is None:
+                cmap.reset_paths()
+            print("resetted")
+            
+                
+            
+        # if the cmap is solved using RRT
+        if cmap.is_solved():
+            
+            # begin routing
+            for i in range(len(path)):
+                p = path[i]
+                p_next = path[i+1]
+                delta_x = p_next.x - p.x
+                delta_y = p_next.y - p.y
+                angle = math.atan2(delta_y, delta_x) * 57.2958
+                # calculate distance for driving
+                dist = math.sqrt(delta_x**2 + delta_y**2)
+                # reset angle before performing turning
+                await robot.turn_in_place(degrees(0)).wait_for_completed()
+                # performing the turn
+                await robot.turn_in_place(degrees(0)).wait_for_completed()
+                # call detecting function again in case there are some obstacles in front of the robot
+                update_cmap, goal_center, marked = await detect_cube_and_update_cmap(robot, marked, robot_pos)
+                if update_cmap:
+                    cmap.reset_paths()
+                    # proceed to next loop
+                    continue
+                # drive straight
+                await robot.drive_straight(distance_mm(dist), speed_mmps(50)).wait_for_completed()
+            # reset angle to 0 after going through all path
+            await robot.turn_in_place(degrees(0)).wait_for_completed()    
+        else:
+            # if the cmap is not solved
+            goal_list = cmap.get_goals()
+            print(goal_list)
+            goal_num = len(cmap.get_goals())
+            if len(goal_list) == 0 and goal_num == 0:
+                # no goals found!
+                if index == 1:
+                    
+                    # drive to center first
+                    dx = globalWidth / 2 - startX
+                    dy = globalHeight / 2 - startY
+                    distance = math.sqrt(dx**2 + dy**2)
+                    alpha = math.atan2(dy, dx) * 57.2958
+                    print(alpha)
+                    await robot.turn_in_place(degrees(alpha)).wait_for_completed()
+                    await robot.drive_straight(distance_mm(distance), speed_mmps(50)).wait_for_completed()
+                    await robot.set_head_angle(degrees(0)).wait_for_completed()
+                else:
+                    # if i > 0
+                    # turn at the center to observe new obstacles and goals
+                    await robot.turn_in_place(degrees(30)).wait_for_completed()
+            else:
+                cmap.set_start(robot_pos)
+                RRT(cmap, cmap.get_start())
+                if cmap.is_solved():
+                    path = cmap.get_smooth_path()
+                index = 0
+    
+                
+    
 
     
 
@@ -126,6 +226,11 @@ def get_global_node(local_angle, local_origin, node):
     ########################################################################
     # TODO: please enter your code below.
     new_node = None
+    x = node.x
+    y = node.y
+    new_x = (x * math.cos(local_angle)) - (y * math.sin(local_angle)) + local_origin.x
+    new_y = (y * math.cos(local_angle)) + (x * math.sin(local_angle)) + local_origin.y
+    new_node = Node((new_x, new_y))
     return new_node
 
 
