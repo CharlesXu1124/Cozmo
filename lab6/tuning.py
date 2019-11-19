@@ -17,7 +17,9 @@ async def CozmoTuning(robot: cozmo.robot.Robot):
     tuning_values = {"kp": 0, "ki": 0, "kd": 0}
     ###############################
     # PLEASE ENTER YOUR CODE BELOW
-    tuning_values["kp"] = 3.0
+    tuning_values["kp"] = 1.5
+    tuning_values["ki"] = 0.5
+    tuning_values["kd"] = 0.1
     ###############################
     
     create_config_file(tuning_values)
