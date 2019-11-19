@@ -13,38 +13,43 @@ async def CozmoPID(robot: cozmo.robot.Robot):
     with open("./config.json") as file:
         config = json.load(file)
     kp = config["kp"]
-    kp = 4.0
     ki = config["ki"]
-    ki = -4.0
     kd = config["kd"]
     ###############################
     # PLEASE ENTER YOUR CODE BELOW
-    # look around to find any cubes present
+    # initialize the variables and objects in memory
     cube = None
     cubefound = False
     rt = 0
     et = 0
     yt = 0 # the desired distance you want to travel
     ut = 0
-    at = 0
-    goal_reached = False
     while not cubefound:
         await robot.world.wait_for_observed_light_cube(timeout=30)
         for obj in robot.world.visible_objects:
             if obj is not None:
                 cube = obj
+                # print in cmd to indicate a cube found
                 print("cube found!")
+                # print the distance of the cube in front of
+                # the robot
                 print(cube.pose.position.x)
+                # prepare to break the while loop
                 cubefound = True
+                # break the for loop to get rid of duplicates
                 break
-                
-    rt = cube.pose.position.x - robot.pose.position.x - 125
+    # calculate rt, the desired distance to travel
+    rt = cube.pose.position.x - robot.pose.position.x - 125 + 5
+    # print rt in case something went wrong
     print(rt)
-    while not goal_reached:
+    '''
+    PID control loop
+    '''
+    while True:
         # calculate the error associated with time t
         print(et)
         et = rt - yt
-        # update the ut
+        # update the ut using PID
         ut = kp*et + ki*yt + kd*(-ut)
         # inject the input to the wheel motors
         robot.drive_wheel_motors(ut, ut)
@@ -52,6 +57,7 @@ async def CozmoPID(robot: cozmo.robot.Robot):
         time.sleep(0.1)
         # update yt after setting new speed
         yt += 0.1*ut
+        # breaking condition for debugging, not needed
         '''
         if et < 1.0:
             break
