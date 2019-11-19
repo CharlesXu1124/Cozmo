@@ -13,7 +13,9 @@ async def CozmoPID(robot: cozmo.robot.Robot):
     with open("./config.json") as file:
         config = json.load(file)
     kp = config["kp"]
+    kp = 4.0
     ki = config["ki"]
+    ki = -4.0
     kd = config["kd"]
     ###############################
     # PLEASE ENTER YOUR CODE BELOW
@@ -32,23 +34,28 @@ async def CozmoPID(robot: cozmo.robot.Robot):
             if obj is not None:
                 cube = obj
                 print("cube found!")
+                print(cube.pose.position.x)
                 cubefound = True
+                break
                 
     rt = cube.pose.position.x - robot.pose.position.x - 125
+    print(rt)
     while not goal_reached:
+        # calculate the error associated with time t
+        print(et)
         et = rt - yt
+        # update the ut
         ut = kp*et + ki*yt + kd*(-ut)
+        # inject the input to the wheel motors
         robot.drive_wheel_motors(ut, ut)
+        # travel for about 0.1 second
         time.sleep(0.1)
+        # update yt after setting new speed
         yt += 0.1*ut
-        if et < 5.0:
+        '''
+        if et < 1.0:
             break
-    
-            
-            
-            
-
-    
+        '''
     
     ###############################
 
